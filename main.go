@@ -12,13 +12,14 @@ import (
 
 type Config struct {
 	Asterisk struct {
-		Endpoint string
+		Host     string
+		Port     int
 		Username string
 		Password string
-		Incoming []string // Incoming channels
 	}
 	Zammad struct {
 		Endpoint string
+		Token    string
 	}
 }
 

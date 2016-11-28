@@ -27,16 +27,14 @@ Create a `config.cfg` with the following configuration:
 
 ```
 [asterisk]
-endpoint = "127.0.0.1:5038"
+host = "127.0.0.1"
+port = 8088
 username = "zammad"
 password = "secret5"
 
-incoming = [
-  "SIP/your_incoming_channel",
-]
-
 [zammad]
-endpoint = "https://zammad.example.com/api/v1/asterisk/in"
+endpoint = "https://zammad.example.com/api/v1/vti_logs"
+token = "your secret token"
 ```
 
 ## Running

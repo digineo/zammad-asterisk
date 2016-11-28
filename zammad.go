@@ -8,44 +8,55 @@ import (
 	"net/http"
 )
 
-type Event struct {
-	Type      string
-	CallId    string
-	Direction string `json:"omitempty"`
-	From      string `json:"omitempty"`
-	To        string `json:"omitempty"`
+type Notification struct {
+	CallID    string `json:"callId"`
+	Event     string `json:"event"`
+	Direction string `json:"direction"`
+	From      string `json:"from"`
+	To        string `json:"to"`
+	Cause     string `json:"cause"`
 }
 
 var (
-	// Channel for outgoing events
-	eventChan = make(chan *Event, 10)
+	// Channel for outgoing notifications
+	queue = make(chan *Notification, 10)
 )
 
 func startZammad() {
 	go func() {
-		for event := range eventChan {
-			event.deliver()
+		for n := range queue {
+			n.deliver()
 		}
 	}()
 }
 
-// Enqueues an event for delivery
-func deliverEvent(event *Event) {
-	eventChan <- event
+// Enqueues an notification for delivery
+func deliverNotification(n *Notification) {
+	queue <- n
 }
 
-// Delivers an event
-func (event *Event) deliver() {
+// Delivers an notification
+func (n *Notification) deliver() {
+	color.New(color.FgCyan).Printf("Delivering Notification: %+v\n", n)
 
-	c := color.New(color.FgCyan)
-	c.Printf("Delivering Event: %+v\n", event)
+	jsonValue, _ := json.Marshal(n)
+	req, err := http.NewRequest("POST", config.Zammad.Endpoint, bytes.NewBuffer(jsonValue))
+	if err != nil {
+		log.Println("failed to create POST request:", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Token token="+config.Zammad.Token)
 
-	if config.Zammad.Endpoint != "" {
-		jsonValue, _ := json.Marshal(event)
+	res, err := http.DefaultClient.Do(req)
 
-		_, err := http.Post(config.Zammad.Endpoint, "application/json", bytes.NewBuffer(jsonValue))
-		if err != nil {
-			log.Println(err)
-		}
+	if err != nil {
+		log.Println("failed to deliver notification:", err)
+		return
+	}
+
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		log.Println("unexpected status code for notification:", res.StatusCode)
+		return
 	}
 }
