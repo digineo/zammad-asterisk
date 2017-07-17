@@ -7,28 +7,33 @@ import (
 	"github.com/fatih/color"
 )
 
+// Call is a currently active call
 type Call struct {
 	Caller string
+	To     string
 }
 
 var (
 	// Currently active channels
 	channels = make(map[string]*Call)
+	client   *ari.Client
 )
 
 func startAsterisk() {
-	client := ari.NewClient(
+	client = ari.NewClient(
 		config.Asterisk.Username,
 		config.Asterisk.Password,
 		config.Asterisk.Host,
 		config.Asterisk.Port,
-		"zammad")
-	client.Debug = true
+		"zammad",
+	)
+
+	// get notified about answered and finished calls outside of the stasis
 	client.SubscribeAll = true
 
 	go func() {
 		for msg := range client.LaunchListener() {
-			log.Printf("%+v", msg)
+			// log.Printf("%+v", msg)
 			handleEvent(msg)
 		}
 	}()
@@ -36,43 +41,62 @@ func startAsterisk() {
 
 func handleEvent(msg ari.Eventer) {
 	switch event := msg.(type) {
-	case *ari.ChannelCreated:
+	case *ari.StasisStart:
+		// New incoming call that should be notified
+		channel, err := client.Channels.Get(event.Channel.Id)
+		var to string
+
+		if err != nil {
+			log.Println("unable to get channel:", err)
+			return
+		}
+
+		if len(event.Args) > 0 {
+			to = event.Args[0]
+		}
+
 		channels[event.Channel.Id] = &Call{
 			Caller: event.Channel.Caller.Number,
+			To:     to,
 		}
+
+		deliverNotification(&Notification{
+			CallID:    event.Channel.Id,
+			Event:     "newCall",
+			Direction: "in",
+			From:      channel.Caller.Number,
+			To:        to,
+		})
+
+		channel.ContinueInDialplan("", "", 0, "")
+
+	case *ari.ChannelVarset:
+		channelID := event.Channel.Id
+		call := channels[channelID]
+		if call == nil || event.Variable != "DIALSTATUS" || event.Value == "" {
+			return
+		}
+
+		if event.Channel.State == "Ring" && event.Value == "ANSWER" {
+			// Answered, now active
+			color.New(color.FgYellow).Printf("Call answered\n")
+			deliverNotification(&Notification{
+				CallID: channelID,
+				Event:  "answer",
+				To:     call.To,
+			})
+		} else {
+			// Finished
+			color.New(color.FgBlue).Printf("Call finished, reason=%s\n", event.Value)
+			deliverNotification(&Notification{
+				CallID: channelID,
+				Event:  "hangup",
+				To:     call.To,
+				Cause:  event.Value,
+			})
+		}
+
 	case *ari.ChannelDestroyed:
 		delete(channels, event.Channel.Id)
-	case *ari.ChannelVarset:
-		if c, found := channels[event.Channel.Id]; found {
-			if event.Variable == "zammad" {
-				// New incoming call that should be notified
-				deliverNotification(&Notification{
-					CallID:    event.Channel.Id,
-					Event:     "newCall",
-					Direction: "in",
-					From:      c.Caller,
-					To:        event.Value,
-				})
-			} else if c.Caller != "" {
-				if event.Variable == "DIALSTATUS" && event.Value != "" {
-					if event.Channel.State == "Ring" && event.Value == "ANSWER" {
-						// Answered, now active
-						color.New(color.FgYellow).Printf("Call answered\n")
-						deliverNotification(&Notification{
-							CallID: event.Channel.Id,
-							Event:  "answer",
-						})
-					} else {
-						// Finished
-						color.New(color.FgBlue).Printf("Call finished, reason=%s\n", event.Value)
-						deliverNotification(&Notification{
-							CallID: event.Channel.Id,
-							Event:  "hangup",
-							Cause:  event.Value,
-						})
-					}
-				}
-			}
-		}
 	}
 }

@@ -24,8 +24,7 @@ type Config struct {
 }
 
 var (
-	config   = Config{}
-	shutdown = false
+	config = Config{}
 )
 
 func main() {
@@ -33,6 +32,14 @@ func main() {
 		fmt.Println("usage:", os.Args[0], "path/to/config.cfg")
 		os.Exit(1)
 	}
+
+	// Configure log format
+	flags := log.Lshortfile
+	if os.Getenv("JOURNAL_STREAM") == "" {
+		// not running as systemd service, add timestamps
+		flags |= log.LstdFlags
+	}
+	log.SetFlags(flags)
 
 	// Parse config file
 	if _, err := toml.DecodeFile(os.Args[1], &config); err != nil {
@@ -46,7 +53,4 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	<-sigs
-
-	log.Println("Shutting down")
-	shutdown = true
 }

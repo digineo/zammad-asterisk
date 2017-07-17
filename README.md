@@ -1,7 +1,8 @@
 Asterisk integration for Zammad
 ===============================
 
-This is **work in progress**!
+This works for me.
+If you need support, just [contact me](https://www.digineo.de/impressum).
 
 ## Installation
 
@@ -11,14 +12,30 @@ This is **work in progress**!
 
 ### Asterisk
 
-Create a new account for the [Asterisk Manager Interface](http://the-asterisk-book.com/1.6/asterisk-manager-api.html) by creating the file `manager.d/zammad.conf` in the asterisk configuration directory:
+Create a new account for the [Asterisk REST Interface](https://wiki.asterisk.org/wiki/pages/viewpage.action?pageId=29395573) by editing the file `ari.conf` in the asterisk configuration directory:
 
 ```
+[general]
+enabled = yes
+
 [zammad]
-secret = secret5
-deny = 0.0.0.0/0.0.0.0
-permit = 127.0.0.1/255.255.255.255
-read = call
+type = user
+read_only = no
+password = secret5
+```
+
+Add the application to your Dialplan in a context for incoming calls.
+The second argument for `Stasis()` is the name of called destination.
+If you have several numbers for incoming calls you can use this argument to distinguish between them.
+
+```
+context incoming {
+	12345678 => {
+		Stasis(zammad, foobar);
+		Dial(...);
+		Hangup;
+	}
+}
 ```
 
 ### Zammad Interface
@@ -27,14 +44,14 @@ Create a `config.cfg` with the following configuration:
 
 ```
 [asterisk]
-host = "127.0.0.1"
-port = 8088
+host     = "127.0.0.1"
+port     = 8088
 username = "zammad"
 password = "secret5"
 
 [zammad]
 endpoint = "https://zammad.example.com/api/v1/vti_logs"
-token = "your secret token"
+token    = "your secret token"
 ```
 
 ## Running
