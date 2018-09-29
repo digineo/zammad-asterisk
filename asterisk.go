@@ -43,7 +43,7 @@ func handleEvent(msg ari.Eventer) {
 	switch event := msg.(type) {
 	case *ari.StasisStart:
 		// New incoming call that should be notified
-		channel, err := client.Channels.Get(event.Channel.Id)
+		channel, err := client.Channels.Get(event.Channel.ID)
 		var to string
 
 		if err != nil {
@@ -55,13 +55,13 @@ func handleEvent(msg ari.Eventer) {
 			to = event.Args[0]
 		}
 
-		channels[event.Channel.Id] = &Call{
+		channels[event.Channel.ID] = &Call{
 			Caller: event.Channel.Caller.Number,
 			To:     to,
 		}
 
 		deliverNotification(&Notification{
-			CallID:    event.Channel.Id,
+			CallID:    event.Channel.ID,
 			Event:     "newCall",
 			Direction: "in",
 			From:      channel.Caller.Number,
@@ -71,7 +71,7 @@ func handleEvent(msg ari.Eventer) {
 		channel.ContinueInDialplan("", "", 0, "")
 
 	case *ari.ChannelVarset:
-		channelID := event.Channel.Id
+		channelID := event.Channel.ID
 		call := channels[channelID]
 		if call == nil || event.Variable != "DIALSTATUS" || event.Value == "" {
 			return
@@ -97,6 +97,6 @@ func handleEvent(msg ari.Eventer) {
 		}
 
 	case *ari.ChannelDestroyed:
-		delete(channels, event.Channel.Id)
+		delete(channels, event.Channel.ID)
 	}
 }
