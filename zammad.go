@@ -3,11 +3,13 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/fatih/color"
 	"log"
 	"net/http"
+
+	"github.com/fatih/color"
 )
 
+// Notification models the payload sent to the Zammad API endpoint.
 type Notification struct {
 	CallID    string `json:"callId"`
 	Event     string `json:"event"`
@@ -17,10 +19,8 @@ type Notification struct {
 	Cause     string `json:"cause"`
 }
 
-var (
-	// Channel for outgoing notifications
-	queue = make(chan *Notification, 10)
-)
+// Channel for outgoing notifications
+var queue = make(chan *Notification, 10)
 
 func startZammad() {
 	go func() {

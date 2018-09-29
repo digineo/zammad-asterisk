@@ -14,7 +14,7 @@ If you need support, just [contact me](https://www.digineo.de/impressum).
 
 Create a new account for the [Asterisk REST Interface](https://wiki.asterisk.org/wiki/pages/viewpage.action?pageId=29395573) by editing the file `ari.conf` in the asterisk configuration directory:
 
-```
+```ini
 [general]
 enabled = yes
 
@@ -42,7 +42,7 @@ context incoming {
 
 Create a `config.cfg` with the following configuration:
 
-```
+```ini
 [asterisk]
 host     = "127.0.0.1"
 port     = 8088

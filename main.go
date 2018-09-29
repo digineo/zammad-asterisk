@@ -10,6 +10,8 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+// Config holds the runtime configuration for this program. It is parsed
+// from a TOML file on startup.
 type Config struct {
 	Asterisk struct {
 		Host     string
@@ -23,9 +25,7 @@ type Config struct {
 	}
 }
 
-var (
-	config = Config{}
-)
+var config = Config{}
 
 func main() {
 	if len(os.Args) < 2 {
