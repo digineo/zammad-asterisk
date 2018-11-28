@@ -1,3 +1,7 @@
+> **DEPRECATION NOTICE:** We've stopped using Zammand and hence don't need this
+> integration anymore. While it might still work perfectly fine, we currently
+> don't have the capacity to maintain it anymore.
+
 Asterisk integration for Zammad
 ===============================
 
