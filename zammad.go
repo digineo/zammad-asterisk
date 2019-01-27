@@ -19,20 +19,11 @@ type Notification struct {
 	Cause     string `json:"cause"`
 }
 
-// Channel for outgoing notifications
-var queue = make(chan *Notification, 10)
-
-func startZammad() {
-	go func() {
-		for n := range queue {
-			n.deliver()
-		}
-	}()
-}
-
 // Enqueues an notification for delivery
 func deliverNotification(n *Notification) {
-	queue <- n
+	go func() {
+		n.deliver()
+	}()
 }
 
 // Delivers an notification
