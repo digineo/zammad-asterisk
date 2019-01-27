@@ -5,9 +5,14 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/fatih/color"
 )
+
+var httpClient = &http.Client{
+	Timeout: time.Second * 10,
+}
 
 // Notification models the payload sent to the Zammad API endpoint.
 type Notification struct {
@@ -39,7 +44,8 @@ func (n *Notification) deliver() {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Token token="+config.Zammad.Token)
 
-	res, err := http.DefaultClient.Do(req)
+	res, err := httpClient.Do(req)
+	res.Body.Close()
 
 	if err != nil {
 		log.Println("failed to deliver notification:", err)
