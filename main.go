@@ -47,7 +47,6 @@ func main() {
 	}
 
 	startAsterisk()
-	startZammad()
 
 	// Wait for SIGINT or SIGTERM
 	sigs := make(chan os.Signal, 1)
