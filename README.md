@@ -10,7 +10,7 @@ If you need support, just [contact me](https://www.digineo.de/impressum).
 
 ## Installation
 
-    go get github.com/digineo/zammad-asterisk/...
+    go install github.com/digineo/zammad-asterisk@latest
 
 ## Configuration
 
