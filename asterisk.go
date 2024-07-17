@@ -1,10 +1,11 @@
 package main
 
 import (
-	"log"
+	"fmt"
 
-	"github.com/abourget/ari"
-	"github.com/fatih/color"
+	"github.com/CyCoreSystems/ari/v5"
+	"github.com/CyCoreSystems/ari/v5/client/native"
+	"github.com/inconshreveable/log15"
 )
 
 // Call is a currently active call
@@ -14,40 +15,52 @@ type Call struct {
 }
 
 var (
+	logger log15.Logger
+
 	// Currently active channels
 	channels = make(map[string]*Call)
-	client   *ari.Client
+	client   *native.Client
 )
 
 func startAsterisk() {
-	client = ari.NewClient(
-		config.Asterisk.Username,
-		config.Asterisk.Password,
-		config.Asterisk.Host,
-		config.Asterisk.Port,
-		"zammad",
-	)
+	logger = native.Logger
+	logger.SetHandler(log15.StderrHandler)
 
-	// get notified about answered and finished calls outside of the stasis
-	client.SubscribeAll = true
+	client = native.New(&native.Options{
+		Application:  "zammad",
+		Username:     config.Asterisk.Username,
+		Password:     config.Asterisk.Password,
+		URL:          fmt.Sprintf("http://%s:%d/ari", config.Asterisk.Host, config.Asterisk.Port),
+		WebsocketURL: fmt.Sprintf("ws://%s:%d/ari/events", config.Asterisk.Host, config.Asterisk.Port),
+	})
 
+	logger.Info("connecting")
+	err := client.Connect()
+
+	if err != nil {
+		panic(err)
+	}
+
+	logger.Info("subscribing")
+	sub := client.Bus().Subscribe(nil, "StasisStart")
+
+	logger.Info("waiting for events")
 	go func() {
-		for msg := range client.LaunchListener() {
-			// log.Printf("%+v", msg)
+		for msg := range sub.Events() {
 			handleEvent(msg)
 		}
 	}()
 }
 
-func handleEvent(msg ari.Eventer) {
+func handleEvent(msg ari.Event) {
 	switch event := msg.(type) {
 	case *ari.StasisStart:
 		// New incoming call that should be notified
-		channel, err := client.Channels.Get(event.Channel.ID)
+		channel := client.Channel().Get(event.Channel.Key)
 		var to string
 
-		if err != nil {
-			log.Println("unable to get channel:", err)
+		if channel == nil {
+			logger.Error("unable to get channel")
 			return
 		}
 
@@ -55,8 +68,12 @@ func handleEvent(msg ari.Eventer) {
 			to = event.Args[0]
 		}
 
+		logger.Info("stasis start", "event", fmt.Sprintf("%+v", event))
+
+		callerNumber := event.Channel.Caller.Number
+
 		channels[event.Channel.ID] = &Call{
-			Caller: event.Channel.Caller.Number,
+			Caller: callerNumber,
 			To:     to,
 		}
 
@@ -64,11 +81,11 @@ func handleEvent(msg ari.Eventer) {
 			CallID:    event.Channel.ID,
 			Event:     "newCall",
 			Direction: "in",
-			From:      channel.Caller.Number,
+			From:      callerNumber,
 			To:        to,
 		})
 
-		channel.ContinueInDialplan("", "", 0, "")
+		channel.Continue("", "", 0)
 
 	case *ari.ChannelVarset:
 		channelID := event.Channel.ID
@@ -79,7 +96,7 @@ func handleEvent(msg ari.Eventer) {
 
 		if event.Channel.State == "Ring" && event.Value == "ANSWER" {
 			// Answered, now active
-			color.New(color.FgYellow).Printf("Call answered\n")
+			logger.Info("Call answered")
 			deliverNotification(&Notification{
 				CallID: channelID,
 				Event:  "answer",
@@ -87,7 +104,7 @@ func handleEvent(msg ari.Eventer) {
 			})
 		} else {
 			// Finished
-			color.New(color.FgBlue).Printf("Call finished, reason=%s\n", event.Value)
+			logger.Info("Call finished", "reason", event.Value)
 			deliverNotification(&Notification{
 				CallID: channelID,
 				Event:  "hangup",
